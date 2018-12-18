@@ -1,0 +1,6 @@
+plugin:
+    name: 'mirjan.vklogin::lang.plugin.name'
+    description: 'mirjan.vklogin::lang.plugin.description'
+    author: 'Mirjan Asymbaev'
+    icon: oc-icon-vk
+    homepage: ''

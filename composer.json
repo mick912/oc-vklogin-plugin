@@ -1,0 +1,15 @@
+{
+    "name": "mirjan/oc-vklogin-plugin",
+    "type": "october-plugin",
+    "description": "Allows visitors to register/sign in with their vk.com accounts for October CMS",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Mirjan Asymbaev",
+            "email": "mick912@mail.ru"
+        }
+    ],
+    "require": {
+      "socialiteproviders/vkontakte": "^4.0"
+    }
+}
