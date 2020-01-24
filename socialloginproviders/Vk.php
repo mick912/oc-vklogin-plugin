@@ -1,39 +1,51 @@
 <?php namespace Mirjan\Vklogin\SocialLoginProviders;
 
 use Backend\Widgets\Form;
+use Illuminate\Support\Facades\URL;
+use Laravel\Socialite\Facades\Socialite;
 use Mirjan\Vklogin\Classes\VkProvider;
 use Flynsarmy\SocialLogin\SocialLoginProviders\SocialLoginProviderBase;
-use Socialite;
 
-use URL;
 
 class Vk extends SocialLoginProviderBase
 {
 	use \October\Rain\Support\Traits\Singleton;
 
 	protected $driver = 'Vk';
-
+    protected $adapter;
+    protected $callback;
 	/**
 	 * Initialize the singleton free from constructor parameters.
 	 */
 	protected function init()
 	{
 		parent::init();
-
-        // Socialite uses config files for credentials but we want to pass from
-        // our settings page - so override the login method for this provider
-        Socialite::extend($this->driver, /**
-         *
-         */
-        function($app) {
-            $providers = \Flynsarmy\SocialLogin\Models\Settings::instance()->get('providers', []);
-            $providers['Vk']['redirect'] = URL::route('flynsarmy_sociallogin_provider_callback', ['Vk'], true);
-            $provider = Socialite::buildProvider(
-                VkProvider::class, (array)@$providers['Vk']
-            );
-            return $provider;
-        });
+        $this->callback = URL::route('flynsarmy_sociallogin_provider_callback', ['Vk'], true);
 	}
+
+    public function getAdapter()
+    {
+        if ( !$this->adapter )
+        {
+            // Instantiate adapter using the configuration from our settings page
+            $providers = $this->settings->get('providers', []);
+
+            $this->adapter = new \Hybridauth\Provider\Vkontakte([
+                'callback' => $this->callback,
+
+                'keys' => [
+                    'id'     => @$providers['Vk']['client_id'],
+                    'secret' => @$providers['Vk']['client_secret'],
+                    'public' => @$providers['Vk']['client_public'],
+                ],
+
+                'debug_mode' => config('app.debug', false),
+                'debug_file' => storage_path('logs/flynsarmy.sociallogin.'.basename(__FILE__).'.log'),
+            ]);
+        }
+
+        return $this->adapter;
+    }
 
 	public function isEnabled()
 	{
@@ -100,18 +112,31 @@ class Vk extends SocialLoginProviderBase
      */
     public function redirectToProvider()
     {
-        return Socialite::driver($this->driver)->scopes(['email'])->redirect();
+        if ($this->getAdapter()->isConnected() )
+            return \Redirect::to($this->callback);
+
+        $this->getAdapter()->authenticate();
     }
 
     /**
      * Handles redirecting off to the login provider
      *
-     * @return array
+     * @return array ['token' => array $token, 'profile' => \Hybridauth\User\Profile]
      */
     public function handleProviderCallback()
     {
-        $user = Socialite::driver($this->driver)->user();
+        $this->getAdapter()->authenticate();
 
-        return (array)$user;
+        $token = $this->getAdapter()->getAccessToken();
+        $profile = $this->getAdapter()->getUserProfile();
+
+        // Don't cache anything or successive logins to different accounts
+        // will keep logging in to the first account
+        $this->getAdapter()->disconnect();
+
+        return [
+            'token' => $token,
+            'profile' => $profile
+        ];
     }
 }
